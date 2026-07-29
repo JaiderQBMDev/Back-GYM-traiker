@@ -2,7 +2,7 @@ import { Router } from "express";
 import { AppError, asyncHandler } from "../middleware/errors.js";
 import { validate } from "../middleware/validate.js";
 import { paginationQuerySchema, uuidParamSchema } from "../schemas/common.schema.js";
-import { finishSessionSchema, logSetSchema, startSessionSchema, updateSetSchema } from "../schemas/session.schema.js";
+import { finishSessionSchema, logPastSessionSchema, logSetSchema, startSessionSchema, updateSetSchema } from "../schemas/session.schema.js";
 
 export const sessionsRouter = Router();
 
@@ -50,6 +50,71 @@ sessionsRouter.post(
       .single();
     if (error) throw new AppError(400, error.message);
     res.status(201).json(data);
+  }),
+);
+
+sessionsRouter.post(
+  "/log-past",
+  validate(logPastSessionSchema),
+  asyncHandler(async (req, res) => {
+    const { routine_name, date, duration_minutes, exercises } = req.body as {
+      routine_name: string;
+      date: string;
+      duration_minutes?: number;
+      exercises: { exercise_id: string; sets: { reps: number; weight_kg: number }[] }[];
+    };
+
+    const startedAt = new Date(`${date}T10:00:00.000Z`);
+    const endedAt = duration_minutes
+      ? new Date(startedAt.getTime() + duration_minutes * 60_000)
+      : new Date(startedAt.getTime() + 60 * 60_000);
+
+    const { data: session, error: sessionError } = await req
+      .supabase!.from("workout_sessions")
+      .insert({
+        user_id: req.user!.id,
+        routine_id: null,
+        routine_name_snapshot: routine_name,
+        status: "completed",
+        started_at: startedAt.toISOString(),
+        ended_at: endedAt.toISOString(),
+      })
+      .select()
+      .single();
+    if (sessionError) throw new AppError(400, sessionError.message);
+
+    const setsToInsert: {
+      session_id: string;
+      exercise_id: string;
+      set_number: number;
+      reps: number;
+      weight_kg: number;
+      is_completed: boolean;
+      completed_at: string;
+      is_personal_record: boolean;
+    }[] = [];
+
+    for (const ex of exercises) {
+      for (let i = 0; i < ex.sets.length; i++) {
+        const s = ex.sets[i]!;
+        const isPR = await computeIsPersonalRecord(req.supabase!, ex.exercise_id, s.weight_kg, true);
+        setsToInsert.push({
+          session_id: session.id,
+          exercise_id: ex.exercise_id,
+          set_number: i + 1,
+          reps: s.reps,
+          weight_kg: s.weight_kg,
+          is_completed: true,
+          completed_at: startedAt.toISOString(),
+          is_personal_record: isPR,
+        });
+      }
+    }
+
+    const { error: setsError } = await req.supabase!.from("workout_sets").insert(setsToInsert);
+    if (setsError) throw new AppError(400, setsError.message);
+
+    res.status(201).json({ id: session.id, sets_count: setsToInsert.length });
   }),
 );
 

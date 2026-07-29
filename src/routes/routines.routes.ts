@@ -5,6 +5,7 @@ import { uuidParamSchema } from "../schemas/common.schema.js";
 import {
   addRoutineExerciseSchema,
   createRoutineSchema,
+  createRoutineWithExercisesSchema,
   reorderRoutineExercisesSchema,
   updateRoutineExerciseSchema,
   updateRoutineSchema,
@@ -22,7 +23,16 @@ routinesRouter.get(
       .order("is_favorite", { ascending: false })
       .order("position", { ascending: true });
     if (error) throw new AppError(400, error.message);
-    res.json(data);
+    const mapped = (data ?? []).map((r: any) => ({
+      id: r.routine_id,
+      name: r.name,
+      is_favorite: r.is_favorite,
+      position: r.position,
+      assigned_day: r.assigned_day,
+      exercise_count: Number(r.exercise_count),
+      last_completed: r.last_completed_at,
+    }));
+    res.json(mapped);
   }),
 );
 
@@ -37,6 +47,26 @@ routinesRouter.post(
       .single();
     if (error) throw new AppError(400, error.message);
     res.status(201).json(data);
+  }),
+);
+
+// create routine with exercises in a single transaction
+routinesRouter.post(
+  "/with-exercises",
+  validate(createRoutineWithExercisesSchema),
+  asyncHandler(async (req, res) => {
+    const { name, is_favorite, assigned_day, exercises } = req.body;
+    const { data, error } = await req.supabase!.rpc(
+      "create_routine_with_exercises",
+      {
+        p_name: name,
+        p_is_favorite: is_favorite ?? false,
+        p_assigned_day: assigned_day ?? null,
+        p_exercises: exercises,
+      },
+    );
+    if (error) throw new AppError(400, error.message);
+    res.status(201).json({ id: data });
   }),
 );
 

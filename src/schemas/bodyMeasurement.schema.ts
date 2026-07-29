@@ -7,10 +7,9 @@ export const upsertBodyMeasurementSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD")
       .optional(),
     weight_kg: z.number().min(20).max(400).optional(),
-    chest_cm: z.number().min(30).max(200).optional(),
-    waist_cm: z.number().min(30).max(200).optional(),
-    bicep_cm: z.number().min(10).max(100).optional(),
-    thigh_cm: z.number().min(10).max(150).optional(),
+    body_fat_pct: z.number().min(1).max(70).optional(),
+    muscle_mass_kg: z.number().min(5).max(200).optional(),
+    visceral_fat_level: z.number().int().min(1).max(20).optional(),
     notes: z.string().trim().max(300).optional(),
   })
   .strict();
