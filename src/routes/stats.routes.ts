@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { AppError, asyncHandler } from "../middleware/errors.js";
+import { AppError, asyncHandler, dbError } from "../middleware/errors.js";
 import { validate } from "../middleware/validate.js";
 import { progressQuerySchema } from "../schemas/session.schema.js";
 
@@ -44,9 +44,9 @@ statsRouter.get(
         .order("started_at", { ascending: false })
         .limit(1),
     ]);
-    if (streakError) throw new AppError(400, streakError.message);
-    if (weekError) throw new AppError(400, weekError.message);
-    if (lastError) throw new AppError(400, lastError.message);
+    if (streakError) throw dbError(400, streakError);
+    if (weekError) throw dbError(400, weekError);
+    if (lastError) throw dbError(400, lastError);
 
     const trainingDays = Array.from({ length: 7 }, (_, idx) => {
       const dayDate = new Date(weekStart);
@@ -120,7 +120,7 @@ statsRouter.get(
   "/streak",
   asyncHandler(async (req, res) => {
     const { data, error } = await req.supabase!.rpc("get_current_streak", { p_user_id: req.user!.id });
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.json({ streak: data ?? 0 });
   }),
 );
@@ -140,7 +140,7 @@ statsRouter.get(
       .eq("status", "completed")
       .gte("started_at", cutoff.toISOString())
       .order("started_at", { ascending: true });
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
 
     const weeklyMap = new Map<string, number>();
     for (let i = 0; i < weeks; i++) {
@@ -172,7 +172,7 @@ statsRouter.get(
       .select("exercise_id, weight_kg, reps, is_personal_record, completed_at, exercises(name, muscle_group)")
       .eq("is_completed", true)
       .order("completed_at", { ascending: false });
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
 
     const exerciseMap = new Map<string, {
       exercise_id: string;
@@ -244,8 +244,8 @@ statsRouter.get(
         .order("completed_at", { ascending: true }),
       req.supabase!.from("exercises").select("name, muscle_group").eq("id", exerciseId).maybeSingle(),
     ]);
-    if (prError) throw new AppError(400, prError.message);
-    if (setsError) throw new AppError(400, setsError.message);
+    if (prError) throw dbError(400, prError);
+    if (setsError) throw dbError(400, setsError);
 
     const allSets = (rawSets ?? []).filter((row) => {
       const session = row.workout_sessions as unknown as { id: string; started_at: string; status: string } | null;

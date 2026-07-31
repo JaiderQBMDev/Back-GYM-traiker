@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { AppError, asyncHandler } from "../middleware/errors.js";
+import { AppError, asyncHandler, dbError } from "../middleware/errors.js";
 import { validate } from "../middleware/validate.js";
 import { updateProfileSchema } from "../schemas/profile.schema.js";
 
@@ -21,7 +21,7 @@ profileRouter.get(
         })
         .select()
         .single();
-      if (insertErr) throw new AppError(400, insertErr.message);
+      if (insertErr) throw dbError(400, insertErr);
       return res.status(201).json(created);
     }
 
@@ -40,7 +40,7 @@ profileRouter.patch(
       .eq("id", req.user!.id)
       .select()
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.json(data);
   }),
 );

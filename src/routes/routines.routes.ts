@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { AppError, asyncHandler } from "../middleware/errors.js";
+import { AppError, asyncHandler, dbError } from "../middleware/errors.js";
 import { validate } from "../middleware/validate.js";
 import { uuidParamSchema } from "../schemas/common.schema.js";
 import {
@@ -22,7 +22,7 @@ routinesRouter.get(
       .select("*")
       .order("is_favorite", { ascending: false })
       .order("position", { ascending: true });
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     const mapped = (data ?? []).map((r: any) => ({
       id: r.routine_id,
       name: r.name,
@@ -45,7 +45,7 @@ routinesRouter.post(
       .insert({ ...req.body, user_id: req.user!.id })
       .select()
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.status(201).json(data);
   }),
 );
@@ -65,7 +65,7 @@ routinesRouter.post(
         p_exercises: exercises,
       },
     );
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.status(201).json({ id: data });
   }),
 );
@@ -112,7 +112,7 @@ routinesRouter.delete(
       .delete({ count: "exact" })
       .eq("id", req.params.id)
       .eq("user_id", req.user!.id);
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     if (!count) throw new AppError(404, "Routine not found");
     res.status(204).send();
   }),
@@ -130,7 +130,7 @@ routinesRouter.post(
       .insert({ ...req.body, routine_id: req.params.id })
       .select("*, exercises(*)")
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.status(201).json(data);
   }),
 );
@@ -161,7 +161,7 @@ routinesRouter.delete(
       .delete({ count: "exact" })
       .eq("id", req.params.reId)
       .eq("routine_id", req.params.id);
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     if (!count) throw new AppError(404, "Routine exercise not found");
     res.status(204).send();
   }),
@@ -185,7 +185,7 @@ routinesRouter.patch(
       ),
     );
     const failed = results.find((r) => r.error);
-    if (failed?.error) throw new AppError(400, failed.error.message);
+    if (failed?.error) throw dbError(400, failed.error);
     res.status(204).send();
   }),
 );

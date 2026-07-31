@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { AppError, asyncHandler } from "../middleware/errors.js";
+import { AppError, asyncHandler, dbError } from "../middleware/errors.js";
 import { validate } from "../middleware/validate.js";
 import { paginationQuerySchema, uuidParamSchema } from "../schemas/common.schema.js";
 import { finishSessionSchema, logPastSessionSchema, logSetSchema, startSessionSchema, updateSetSchema } from "../schemas/session.schema.js";
@@ -17,7 +17,7 @@ sessionsRouter.get(
       .select("*")
       .order("started_at", { ascending: false })
       .range(offset, offset + limit - 1);
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.json(data);
   }),
 );
@@ -48,7 +48,7 @@ sessionsRouter.post(
       })
       .select()
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.status(201).json(data);
   }),
 );
@@ -81,7 +81,7 @@ sessionsRouter.post(
       })
       .select()
       .single();
-    if (sessionError) throw new AppError(400, sessionError.message);
+    if (sessionError) throw dbError(400, sessionError);
 
     const setsToInsert: {
       session_id: string;
@@ -112,7 +112,7 @@ sessionsRouter.post(
     }
 
     const { error: setsError } = await req.supabase!.from("workout_sets").insert(setsToInsert);
-    if (setsError) throw new AppError(400, setsError.message);
+    if (setsError) throw dbError(400, setsError);
 
     res.status(201).json({ id: session.id, sets_count: setsToInsert.length });
   }),
@@ -131,7 +131,7 @@ sessionsRouter.get(
         .order("set_number", { ascending: true }),
     ]);
     if (sessionError || !session) throw new AppError(404, "Session not found");
-    if (setsError) throw new AppError(400, setsError.message);
+    if (setsError) throw dbError(400, setsError);
     res.json({ ...session, sets });
   }),
 );
@@ -205,7 +205,7 @@ sessionsRouter.post(
       )
       .select()
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.status(201).json(data);
   }),
 );
@@ -251,7 +251,7 @@ sessionsRouter.patch(
       .eq("id", req.params.setId)
       .select()
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.json(data);
   }),
 );
@@ -265,7 +265,7 @@ sessionsRouter.delete(
       .delete({ count: "exact" })
       .eq("id", req.params.setId)
       .eq("session_id", req.params.id);
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     if (!count) throw new AppError(404, "Set not found");
     res.status(204).send();
   }),

@@ -13,6 +13,12 @@ export const createExerciseSchema = z
 
 export const updateExerciseSchema = createExerciseSchema.partial().strict();
 
+export const uploadExerciseImageSchema = z
+  .object({
+    image_url: z.string().url().max(2048),
+  })
+  .strict();
+
 export const listExercisesQuerySchema = z
   .object({
     muscle_group: z.enum(MUSCLE_GROUPS).optional(),

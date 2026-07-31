@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { AppError, asyncHandler } from "../middleware/errors.js";
+import { AppError, asyncHandler, dbError } from "../middleware/errors.js";
 import { validate } from "../middleware/validate.js";
 import { uuidParamSchema } from "../schemas/common.schema.js";
 import {
@@ -19,7 +19,7 @@ bodyMeasurementsRouter.get(
     if (from) query = query.gte("recorded_on", from);
     if (to) query = query.lte("recorded_on", to);
     const { data, error } = await query;
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.json(data);
   }),
 );
@@ -37,7 +37,7 @@ bodyMeasurementsRouter.post(
       )
       .select()
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.status(201).json(data);
   }),
 );
@@ -68,7 +68,7 @@ bodyMeasurementsRouter.delete(
       .delete({ count: "exact" })
       .eq("id", req.params.id)
       .eq("user_id", req.user!.id);
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     if (!count) throw new AppError(404, "Measurement not found");
     res.status(204).send();
   }),

@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { AppError, asyncHandler } from "../middleware/errors.js";
+import { AppError, asyncHandler, dbError } from "../middleware/errors.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
 import { validate } from "../middleware/validate.js";
 import { uuidParamSchema } from "../schemas/common.schema.js";
-import { createExerciseSchema, listExercisesQuerySchema, updateExerciseSchema } from "../schemas/exercise.schema.js";
+import { createExerciseSchema, listExercisesQuerySchema, updateExerciseSchema, uploadExerciseImageSchema } from "../schemas/exercise.schema.js";
 
 export const exercisesRouter = Router();
 
@@ -22,7 +22,7 @@ exercisesRouter.get(
     if (muscle_group) query = query.eq("muscle_group", muscle_group);
     if (search) query = query.ilike("name", `%${escapeLike(search)}%`);
     const { data, error } = await query;
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.json(data);
   }),
 );
@@ -38,7 +38,7 @@ exercisesRouter.post(
       .insert({ ...req.body, owner_id: null })
       .select()
       .single();
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     res.status(201).json(data);
   }),
 );
@@ -71,7 +71,7 @@ exercisesRouter.delete(
       .supabase!.from("exercises")
       .delete({ count: "exact" })
       .eq("id", req.params.id);
-    if (error) throw new AppError(400, error.message);
+    if (error) throw dbError(400, error);
     if (!count) throw new AppError(404, "Exercise not found");
     res.status(204).send();
   }),
@@ -82,11 +82,9 @@ exercisesRouter.post(
   "/:id/image",
   requireAdmin,
   validate(uuidParamSchema, "params"),
+  validate(uploadExerciseImageSchema),
   asyncHandler(async (req, res) => {
     const { image_url } = req.body as { image_url: string };
-    if (!image_url || typeof image_url !== "string") {
-      throw new AppError(400, "image_url is required");
-    }
 
     const { data, error } = await req
       .supabase!.from("exercises")
