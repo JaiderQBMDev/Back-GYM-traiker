@@ -19,6 +19,7 @@ export const MUSCLE_GROUPS = [
   "abdomen",
   "gluteos",
   "pantorrillas",
+  "antebrazo",
   "cardio",
   "otro",
 ] as const;
