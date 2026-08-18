@@ -3,23 +3,25 @@ import { z } from "zod";
 import { AppError, asyncHandler, dbError } from "../middleware/errors.js";
 import { validate } from "../middleware/validate.js";
 import { progressQuerySchema } from "../schemas/session.schema.js";
+import {
+  getUserTimezone,
+  localDateString,
+  localWeekdayIndex,
+  startOfLocalIsoWeek,
+  startOfLocalMonth,
+  startOfPreviousLocalMonth,
+} from "../lib/timezone.js";
 
 export const statsRouter = Router();
-
-function startOfIsoWeek(date: Date): Date {
-  const d = new Date(date);
-  const day = (d.getDay() + 6) % 7; // 0 = Monday
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - day);
-  return d;
-}
 
 // dashboard — streak, this-week stats, next routine, last session, training days
 statsRouter.get(
   "/dashboard",
   asyncHandler(async (req, res) => {
     const userId = req.user!.id;
-    const weekStart = startOfIsoWeek(new Date());
+    const timezone = await getUserTimezone(req);
+    const now = new Date();
+    const weekStart = startOfLocalIsoWeek(now, timezone);
 
     const [
       { data: streak, error: streakError },
@@ -27,7 +29,7 @@ statsRouter.get(
       { data: nextRoutines },
       { data: lastSessions, error: lastError },
     ] = await Promise.all([
-      req.supabase!.rpc("get_current_streak", { p_user_id: userId }),
+      req.supabase!.rpc("get_current_streak", { p_user_id: userId, p_timezone: timezone }),
       req
         .supabase!.from("workout_session_stats")
         .select("*")
@@ -49,16 +51,16 @@ statsRouter.get(
     if (lastError) throw dbError(400, lastError);
 
     const trainingDays = Array.from({ length: 7 }, (_, idx) => {
-      const dayDate = new Date(weekStart);
-      dayDate.setDate(weekStart.getDate() + idx);
+      const dayDate = new Date(weekStart.getTime() + idx * 86_400_000);
+      const dayLabel = localDateString(dayDate, timezone);
       return (weekSessions ?? []).some((s) => {
         const started = new Date(s.started_at as string);
-        return started.toDateString() === dayDate.toDateString();
+        return localDateString(started, timezone) === dayLabel;
       });
     });
 
     const routines = nextRoutines ?? [];
-    const todayDay = (new Date().getDay() + 6) % 7;
+    const todayDay = localWeekdayIndex(now, timezone);
 
     const hasAnyAssignedDay = routines.some((r: any) => r.assigned_day !== null);
     const todayRoutine = routines.find((r: any) => r.assigned_day === todayDay);
@@ -119,7 +121,9 @@ statsRouter.get(
 statsRouter.get(
   "/streak",
   asyncHandler(async (req, res) => {
-    const { data, error } = await req.supabase!.rpc("get_current_streak", { p_user_id: req.user!.id });
+    const timezone = await getUserTimezone(req);
+    const { data, error } = await req
+      .supabase!.rpc("get_current_streak", { p_user_id: req.user!.id, p_timezone: timezone });
     if (error) throw dbError(400, error);
     res.json({ streak: data ?? 0 });
   }),
@@ -129,6 +133,7 @@ statsRouter.get(
 statsRouter.get(
   "/weekly-volume",
   asyncHandler(async (req, res) => {
+    const timezone = await getUserTimezone(req);
     const weeks = 8;
     const now = new Date();
     const cutoff = new Date(now);
@@ -146,12 +151,12 @@ statsRouter.get(
     for (let i = 0; i < weeks; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() - i * 7);
-      const isoWeek = getIsoWeekLabel(d);
+      const isoWeek = getIsoWeekLabel(d, timezone);
       weeklyMap.set(isoWeek, 0);
     }
 
     for (const s of sessions ?? []) {
-      const label = getIsoWeekLabel(new Date(s.started_at as string));
+      const label = getIsoWeekLabel(new Date(s.started_at as string), timezone);
       weeklyMap.set(label, (weeklyMap.get(label) ?? 0) + Number(s.total_volume_kg ?? 0));
     }
 
@@ -208,11 +213,8 @@ statsRouter.get(
   }),
 );
 
-function getIsoWeekLabel(date: Date): string {
-  const d = new Date(date);
-  const day = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
+function getIsoWeekLabel(date: Date, timezone: string): string {
+  return localDateString(startOfLocalIsoWeek(date, timezone), timezone);
 }
 
 const exerciseIdParamSchema = z.object({ exerciseId: z.string().uuid() }).strict();
@@ -225,6 +227,7 @@ statsRouter.get(
   asyncHandler(async (req, res) => {
     const exerciseId = req.params.exerciseId;
     const { period } = req.query as unknown as { period: "1m" | "3m" | "6m" | "1y" | "all" };
+    const timezone = await getUserTimezone(req);
 
     const cutoff = new Date();
     const monthsBack = { "1m": 1, "3m": 3, "6m": 6, "1y": 12, all: null }[period];
@@ -262,7 +265,7 @@ statsRouter.get(
     const chartMap = new Map<string, { date: string; weight_kg: number }>();
     for (const s of periodSets) {
       const session = s.workout_sessions as unknown as { started_at: string };
-      const dateKey = new Date(session.started_at).toISOString().slice(0, 10);
+      const dateKey = localDateString(new Date(session.started_at), timezone);
       const existing = chartMap.get(dateKey);
       const w = s.weight_kg ?? 0;
       if (!existing || w > existing.weight_kg) {
@@ -273,8 +276,8 @@ statsRouter.get(
 
     // Monthly volume comparison
     const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const thisMonthStart = startOfLocalMonth(now, timezone);
+    const lastMonthStart = startOfPreviousLocalMonth(now, timezone);
     let volThisMonth = 0;
     let volLastMonth = 0;
     for (const s of allSets) {
@@ -309,7 +312,7 @@ statsRouter.get(
       } else {
         sessionMap.set(session.id, {
           session_id: session.id,
-          date: new Date(session.started_at).toISOString().slice(0, 10),
+          date: localDateString(new Date(session.started_at), timezone),
           sets: [setData],
           has_pr: setData.is_pr,
           total_volume: setData.reps * setData.weight_kg,

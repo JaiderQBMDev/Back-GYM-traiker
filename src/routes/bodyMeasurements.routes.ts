@@ -7,6 +7,7 @@ import {
   updateBodyMeasurementSchema,
   upsertBodyMeasurementSchema,
 } from "../schemas/bodyMeasurement.schema.js";
+import { getUserTimezone, localDateString } from "../lib/timezone.js";
 
 export const bodyMeasurementsRouter = Router();
 
@@ -29,10 +30,11 @@ bodyMeasurementsRouter.post(
   validate(upsertBodyMeasurementSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as Record<string, unknown>;
+    const recordedOn = body.recorded_on ?? localDateString(new Date(), await getUserTimezone(req));
     const { data, error } = await req
       .supabase!.from("body_measurements")
       .upsert(
-        { ...body, user_id: req.user!.id, recorded_on: body.recorded_on ?? new Date().toISOString().slice(0, 10) },
+        { ...body, user_id: req.user!.id, recorded_on: recordedOn },
         { onConflict: "user_id,recorded_on" },
       )
       .select()

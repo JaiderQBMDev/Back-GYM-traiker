@@ -1,11 +1,13 @@
--- Global exercise catalog (owner_id null = visible to all users).
+-- Migration 0011: Add 'antebrazo' to muscle_group enum + expand exercise catalog
+-- Run against the PRODUCTION Supabase project.
 
+-- 1. Add new enum value
+alter type muscle_group add value if not exists 'antebrazo';
+
+-- 2. Insert new exercises (on conflict = skip duplicates)
 insert into public.exercises (name, muscle_group) values
-  -- ── PECHO ──────────────────────────────────────────────────────────
-  ('Press de Banca', 'pecho'),
-  ('Press Inclinado', 'pecho'),
+  -- Pecho (nuevos)
   ('Press Declinado', 'pecho'),
-  ('Aperturas', 'pecho'),
   ('Aperturas Inclinadas', 'pecho'),
   ('Aperturas en Máquina', 'pecho'),
   ('Press con Mancuernas', 'pecho'),
@@ -17,15 +19,11 @@ insert into public.exercises (name, muscle_group) values
   ('Press en Máquina', 'pecho'),
   ('Fondos para Pecho', 'pecho'),
 
-  -- ── ESPALDA ────────────────────────────────────────────────────────
-  ('Dominadas', 'espalda'),
+  -- Espalda (nuevos)
   ('Dominadas con Agarre Cerrado', 'espalda'),
-  ('Remo con Barra', 'espalda'),
   ('Remo con Mancuerna', 'espalda'),
-  ('Jalón al Pecho', 'espalda'),
   ('Jalón Tras Nuca', 'espalda'),
   ('Jalón con Agarre Cerrado', 'espalda'),
-  ('Remo en Máquina', 'espalda'),
   ('Remo en Polea Baja', 'espalda'),
   ('Remo con Barra T', 'espalda'),
   ('Peso Muerto', 'espalda'),
@@ -36,18 +34,13 @@ insert into public.exercises (name, muscle_group) values
   ('Encogimientos con Mancuernas', 'espalda'),
   ('Hiperextensiones', 'espalda'),
 
-  -- ── PIERNAS ────────────────────────────────────────────────────────
-  ('Sentadilla', 'piernas'),
+  -- Piernas (nuevos)
   ('Sentadilla Frontal', 'piernas'),
   ('Sentadilla Búlgara', 'piernas'),
   ('Sentadilla Hack', 'piernas'),
   ('Sentadilla Goblet', 'piernas'),
-  ('Prensa de Piernas', 'piernas'),
   ('Prensa de Piernas 45°', 'piernas'),
-  ('Peso Muerto Rumano', 'piernas'),
   ('Peso Muerto Sumo', 'piernas'),
-  ('Extensión de Cuádriceps', 'piernas'),
-  ('Curl Femoral', 'piernas'),
   ('Curl Femoral Sentado', 'piernas'),
   ('Zancadas con Mancuernas', 'piernas'),
   ('Zancadas Caminando', 'piernas'),
@@ -56,11 +49,9 @@ insert into public.exercises (name, muscle_group) values
   ('Abductores en Máquina', 'piernas'),
   ('Buenos Días', 'piernas'),
 
-  -- ── HOMBROS ────────────────────────────────────────────────────────
-  ('Press Militar', 'hombros'),
+  -- Hombros (nuevos)
   ('Press Militar con Mancuernas', 'hombros'),
   ('Press Arnold', 'hombros'),
-  ('Elevaciones Laterales', 'hombros'),
   ('Elevaciones Laterales en Polea', 'hombros'),
   ('Elevaciones Frontales', 'hombros'),
   ('Elevaciones Frontales con Barra', 'hombros'),
@@ -70,10 +61,8 @@ insert into public.exercises (name, muscle_group) values
   ('Press en Máquina de Hombros', 'hombros'),
   ('Encogimientos en Máquina', 'hombros'),
 
-  -- ── BÍCEPS ─────────────────────────────────────────────────────────
-  ('Curl con Barra', 'biceps'),
+  -- Bíceps (nuevos)
   ('Curl con Barra Z', 'biceps'),
-  ('Curl Martillo', 'biceps'),
   ('Curl con Mancuernas', 'biceps'),
   ('Curl Concentrado', 'biceps'),
   ('Curl en Banco Scott', 'biceps'),
@@ -83,11 +72,8 @@ insert into public.exercises (name, muscle_group) values
   ('Curl Araña', 'biceps'),
   ('Curl 21s', 'biceps'),
 
-  -- ── TRÍCEPS ────────────────────────────────────────────────────────
-  ('Fondos en paralelas', 'triceps'),
-  ('Press Francés', 'triceps'),
+  -- Tríceps (nuevos)
   ('Press Francés con Mancuernas', 'triceps'),
-  ('Extensión Tríceps', 'triceps'),
   ('Extensión Tríceps en Polea', 'triceps'),
   ('Extensión Tríceps con Cuerda', 'triceps'),
   ('Patada de Tríceps', 'triceps'),
@@ -96,10 +82,8 @@ insert into public.exercises (name, muscle_group) values
   ('Extensión Tríceps sobre Cabeza', 'triceps'),
   ('Extensión Tríceps con Barra Z', 'triceps'),
 
-  -- ── ABDOMEN ────────────────────────────────────────────────────────
-  ('Plancha', 'abdomen'),
+  -- Abdomen (nuevos)
   ('Plancha Lateral', 'abdomen'),
-  ('Crunch en Máquina', 'abdomen'),
   ('Crunch en Polea', 'abdomen'),
   ('Crunch Invertido', 'abdomen'),
   ('Elevación de Piernas Colgado', 'abdomen'),
@@ -111,7 +95,7 @@ insert into public.exercises (name, muscle_group) values
   ('Woodchoppers', 'abdomen'),
   ('Sit Ups', 'abdomen'),
 
-  -- ── GLÚTEOS ────────────────────────────────────────────────────────
+  -- Glúteos (nuevos)
   ('Hip Thrust con Barra', 'gluteos'),
   ('Hip Thrust en Máquina', 'gluteos'),
   ('Puente de Glúteos', 'gluteos'),
@@ -122,15 +106,14 @@ insert into public.exercises (name, muscle_group) values
   ('Abducción de Cadera', 'gluteos'),
   ('Clamshell', 'gluteos'),
 
-  -- ── PANTORRILLAS ───────────────────────────────────────────────────
-  ('Elevación de Talones', 'pantorrillas'),
+  -- Pantorrillas (nuevos)
   ('Elevación de Talones Sentado', 'pantorrillas'),
   ('Elevación de Talones en Prensa', 'pantorrillas'),
   ('Elevación de Talones con Mancuerna', 'pantorrillas'),
   ('Elevación de Talones a Una Pierna', 'pantorrillas'),
   ('Saltos de Pantorrilla', 'pantorrillas'),
 
-  -- ── ANTEBRAZO ──────────────────────────────────────────────────────
+  -- Antebrazo (todos nuevos)
   ('Curl de Muñeca con Barra', 'antebrazo'),
   ('Curl de Muñeca Inverso', 'antebrazo'),
   ('Curl Inverso con Barra', 'antebrazo'),
@@ -140,7 +123,7 @@ insert into public.exercises (name, muscle_group) values
   ('Agarre con Pinza', 'antebrazo'),
   ('Dead Hang', 'antebrazo'),
 
-  -- ── CARDIO ─────────────────────────────────────────────────────────
+  -- Cardio (todos nuevos)
   ('Caminata en Cinta', 'cardio'),
   ('Correr en Cinta', 'cardio'),
   ('Bicicleta Estática', 'cardio'),

@@ -26,5 +26,22 @@ export const updateProfileSchema = z
       .enum(["create_own", "receive_recommended"])
       .optional(),
     onboarding_completed: z.boolean().optional(),
+    timezone: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .refine(
+        (tz) => {
+          try {
+            Intl.DateTimeFormat(undefined, { timeZone: tz });
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        { message: "Invalid IANA timezone" },
+      )
+      .optional(),
   })
   .strict();

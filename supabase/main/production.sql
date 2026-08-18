@@ -18,7 +18,7 @@ create extension if not exists "pgcrypto";
 
 create type muscle_group as enum (
   'pecho', 'espalda', 'piernas', 'hombros', 'biceps', 'triceps',
-  'abdomen', 'gluteos', 'pantorrillas', 'cardio', 'otro'
+  'abdomen', 'gluteos', 'pantorrillas', 'antebrazo', 'cardio', 'otro'
 );
 
 create type session_status as enum ('in_progress', 'completed', 'cancelled');
@@ -51,6 +51,7 @@ create table public.profiles (
   experience_level experience_level,
   routine_preference routine_preference,
   onboarding_completed boolean not null default false,
+  timezone text not null default 'UTC',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -209,12 +210,12 @@ $$;
 grant execute on function private.is_admin() to authenticated;
 
 -- Daily streak calculation
-create function public.get_current_streak(p_user_id uuid)
+create function public.get_current_streak(p_user_id uuid, p_timezone text default 'UTC')
 returns int
 language sql stable set search_path = ''
 as $$
   with days as (
-    select distinct date(started_at) as d
+    select distinct (started_at at time zone p_timezone)::date as d
     from public.workout_sessions
     where user_id = p_user_id and status = 'completed'
   ),
@@ -228,7 +229,7 @@ as $$
     group by grp
   )
   select coalesce(
-    (select len from streaks where end_d >= current_date - 1 order by end_d desc limit 1),
+    (select len from streaks where end_d >= ((now() at time zone p_timezone)::date - 1) order by end_d desc limit 1),
     0
   );
 $$;
